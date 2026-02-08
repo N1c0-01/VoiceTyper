@@ -14,7 +14,7 @@ from settings_window import SettingsWindow
 from overlay import RecordingOverlay, STATE_RECORDING, STATE_PROCESSING, STATE_DONE
 import updater
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 
 def load_icon(name):
