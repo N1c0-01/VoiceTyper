@@ -79,6 +79,7 @@ class SettingsWindow:
         self.on_save_callback = on_save_callback
         self.window = None
         self._recording_hotkey = False
+        self._pending_update = None
 
     def open(self):
         """Open the settings window. If already open, focus it."""
@@ -101,6 +102,10 @@ class SettingsWindow:
 
         self._build_ui()
         self._load_values()
+
+        # Apply pending update notification if detected before window was open
+        if self._pending_update:
+            self.show_update_available(self._pending_update)
 
     # ══════════════════════════════════════════════════════════════
     #   UI BUILD
@@ -686,9 +691,6 @@ class SettingsWindow:
             card, height=6, corner_radius=3,
             fg_color=BORDER_DARK, progress_color=PURPLE
         )
-        # Hidden by default, shown during download
-
-        self._pending_update = None
 
     def _on_check_update(self):
         from main import APP_VERSION
