@@ -8,10 +8,11 @@ import sys
 from utils import get_resource_path
 
 class Transcriber:
-    def __init__(self, model_path="external/models/ggml-small.bin", whisper_path="external/whisper.exe"):
+    def __init__(self, model_path="external/models/ggml-small.bin", whisper_path="external/whisper.exe", language="de"):
         # Use helper to resolve path in dev or frozen mode
         self.model_path = get_resource_path(model_path)
         self.whisper_path = get_resource_path(whisper_path)
+        self.language = language
         
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model not found at {self.model_path}")
@@ -72,7 +73,7 @@ class Transcriber:
                 self.whisper_path,
                 "-m", self.model_path,
                 "-f", tmp_wav,
-                "-l", "en",
+                "-l", self.language,
                 "--no-timestamps"
             ]
 

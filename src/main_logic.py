@@ -163,8 +163,8 @@ class VoiceTyperApp:
                 from transcriber import Transcriber
                 from utils import get_resource_path
                 whisper_exe = get_resource_path("external/whisper.exe")
-                logging.info(f"Using local whisper.cpp backend with '{model_name}' model at {model_path}")
-                return Transcriber(model_path=model_path, whisper_path=whisper_exe)
+                logging.info(f"Using local whisper.cpp backend with '{model_name}' model at {model_path}, language={language}")
+                return Transcriber(model_path=model_path, whisper_path=whisper_exe, language=language)
             except Exception as e:
                 logging.error(f"Failed to init local transcriber: {e}")
                 notify("Error", f"Local transcriber failed: {e}")
