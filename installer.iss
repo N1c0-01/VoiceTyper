@@ -14,7 +14,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputDir=..\
+OutputDir=.\
 OutputBaseFilename=VoiceTyper_Setup_v{#MyAppVersion}
 SetupIconFile=assets\icon.ico
 Compression=lzma
@@ -34,10 +34,10 @@ Name: "autostart"; Description: "VoiceTyper beim Windows-Start automatisch start
 
 [Files]
 ; Main executable
-Source: "..\dist\VoiceTyper\VoiceTyper.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\VoiceTyper\VoiceTyper.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; All files in _internal (PyInstaller bundle)
-Source: "..\dist\VoiceTyper\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\VoiceTyper\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
