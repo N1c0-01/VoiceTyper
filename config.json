@@ -1,0 +1,12 @@
+{
+    "hotkey": "right ctrl",
+    "recording_mode": "hold",
+    "show_notifications": true,
+    "auto_start": false,
+    "transcription_backend": "local",
+    "openai_api_key": "",
+    "local_model": "small",
+    "language": "de",
+    "overlay_position": "Top Center",
+    "saved_api_keys": []
+}

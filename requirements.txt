@@ -1,0 +1,9 @@
+pynput
+keyboard
+sounddevice
+numpy
+pystray
+Pillow
+requests
+plyer
+customtkinter
