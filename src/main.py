@@ -12,6 +12,7 @@ from main_logic import VoiceTyperApp
 from utils import get_resource_path
 from settings_window import SettingsWindow
 from overlay import RecordingOverlay, STATE_RECORDING, STATE_PROCESSING, STATE_DONE
+import updater
 
 APP_VERSION = "1.0.0"
 
@@ -135,6 +136,15 @@ def main():
     # Start icon state updater
     icon_thread = threading.Thread(target=update_icon, daemon=True)
     icon_thread.start()
+
+    # Background update check on startup
+    def _startup_update_check():
+        time.sleep(5)  # Let app fully initialize first
+        info = updater.check_for_update(APP_VERSION)
+        if info and tk_root and settings:
+            tk_root.after(0, lambda: settings.show_update_available(info))
+
+    threading.Thread(target=_startup_update_check, daemon=True).start()
 
     # Run pystray on main thread (required on Windows for reliable menu)
     tray_icon.run()

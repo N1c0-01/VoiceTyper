@@ -35,6 +35,7 @@ a = Analysis(
         'transcriber_api',
         'keyboard_injector',
         'main_logic',
+        'updater',
     ],
     hookspath=[],
     hooksconfig={},
