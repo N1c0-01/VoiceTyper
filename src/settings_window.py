@@ -6,6 +6,7 @@ import keyboard
 
 from config import ConfigManager
 import model_manager
+import updater
 
 
 # ── Color Palette ──────────────────────────────────────────────
@@ -184,6 +185,9 @@ class SettingsWindow:
 
         # ── Preferences Card ───────────────────────────────────
         self._build_preferences_card(container)
+
+        # ── Update Card ───────────────────────────────────────
+        self._build_update_card(container)
 
     def _build_hotkey_card(self, parent):
         card = self._make_card(parent, "Hotkey", CYAN)
@@ -653,6 +657,120 @@ class SettingsWindow:
     # ══════════════════════════════════════════════════════════════
     #   CARD FACTORY
     # ══════════════════════════════════════════════════════════════
+
+    # ══════════════════════════════════════════════════════════════
+    #   UPDATE CARD
+    # ══════════════════════════════════════════════════════════════
+
+    def _build_update_card(self, parent):
+        card = self._make_card(parent, "Updates", PURPLE)
+
+        self.update_status = ctk.CTkLabel(
+            card, text="", font=FONT_SMALL, text_color=TEXT_SECONDARY
+        )
+        self.update_status.pack(anchor="w", pady=(0, 6))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x")
+
+        self.update_btn = ctk.CTkButton(
+            btn_row, text="Check for Updates", height=36,
+            fg_color=PANEL_DARK, hover_color=BORDER_GLOW,
+            border_width=1, border_color=BORDER_DARK,
+            text_color=LIGHT_GREY, font=FONT_BUTTON,
+            corner_radius=8, command=self._on_check_update
+        )
+        self.update_btn.pack(side="left")
+
+        self.update_progress = ctk.CTkProgressBar(
+            card, height=6, corner_radius=3,
+            fg_color=BORDER_DARK, progress_color=PURPLE
+        )
+        # Hidden by default, shown during download
+
+        self._pending_update = None
+
+    def _on_check_update(self):
+        from main import APP_VERSION
+        self.update_btn.configure(state="disabled", text="Checking...")
+        self.update_status.configure(text="Contacting server...", text_color=TEXT_SECONDARY)
+
+        def _check():
+            info = updater.check_for_update(APP_VERSION)
+            if self.window and self.window.winfo_exists():
+                self.window.after(0, self._on_check_result, info)
+
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _on_check_result(self, info):
+        self.update_btn.configure(state="normal", text="Check for Updates")
+        if info:
+            self.show_update_available(info)
+        else:
+            self.update_status.configure(
+                text="You are running the latest version.",
+                text_color=GREEN_OK
+            )
+
+    def show_update_available(self, info):
+        """Called from main.py on startup or from manual check."""
+        self._pending_update = info
+        version = info["version"]
+        size_mb = info.get("size_bytes", 0) / (1024 * 1024)
+
+        if not self.window or not self.window.winfo_exists():
+            # Store for when settings opens
+            return
+
+        self.update_status.configure(
+            text=f"Update available: v{version} ({size_mb:.1f} MB)",
+            text_color=CYAN
+        )
+        self.update_btn.configure(
+            text=f"Install v{version}",
+            fg_color=CYAN, hover_color=CYAN_HOVER,
+            text_color=BG_BLACK,
+            command=self._on_install_update
+        )
+
+    def _on_install_update(self):
+        if not self._pending_update:
+            return
+
+        self.update_btn.configure(state="disabled", text="Downloading...")
+        self.update_progress.pack(fill="x", pady=(8, 0))
+        self.update_progress.set(0)
+
+        updater.download_and_apply_update(
+            self._pending_update,
+            progress_callback=lambda pct: self.window.after(
+                0, self.update_progress.set, pct / 100
+            ) if self.window and self.window.winfo_exists() else None,
+            done_callback=lambda ok, msg: self.window.after(
+                0, self._on_update_downloaded, ok, msg
+            ) if self.window and self.window.winfo_exists() else None,
+        )
+
+    def _on_update_downloaded(self, success, message):
+        if success:
+            self.update_progress.set(1.0)
+            self.update_status.configure(
+                text="Update ready! App will restart now...",
+                text_color=GREEN_OK
+            )
+            self.update_btn.configure(text="Restarting...")
+            # Short delay then apply
+            self.window.after(1500, lambda: updater.apply_and_restart(message))
+        else:
+            self.update_status.configure(
+                text=f"Update failed: {message}",
+                text_color=RED_ACCENT
+            )
+            self.update_btn.configure(
+                state="normal", text="Retry",
+                fg_color=PANEL_DARK, text_color=LIGHT_GREY,
+                command=self._on_install_update
+            )
 
     def _make_card(self, parent, title, accent_color):
         card = ctk.CTkFrame(
