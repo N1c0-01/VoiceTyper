@@ -12,9 +12,10 @@ from main_logic import VoiceTyperApp
 from utils import get_resource_path
 from settings_window import SettingsWindow
 from overlay import RecordingOverlay, STATE_RECORDING, STATE_PROCESSING, STATE_DONE
+from clipboard_popup import ClipboardPopup
 import updater
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.1.0"
 
 
 def load_icon(name):
@@ -28,6 +29,7 @@ tk_root = None
 overlay = None
 settings = None
 tray_icon = None
+clipboard_popup = None
 
 icons = {
     "idle": load_icon("icon.ico"),
@@ -39,7 +41,7 @@ icons = {
 # ── Tk thread ─────────────────────────────────────────────────
 
 def start_tk():
-    global tk_root, overlay, settings
+    global tk_root, overlay, settings, clipboard_popup
     tk_root = ctk.CTk()
     tk_root.withdraw()
     ctk.set_appearance_mode("dark")
@@ -49,6 +51,9 @@ def start_tk():
     )
     overlay.set_root(tk_root)
 
+    clipboard_popup = ClipboardPopup(copy_fn=app_logic._copy_to_clipboard)
+    clipboard_popup.set_root(tk_root)
+
     settings = SettingsWindow(
         app_logic.config,
         on_save_callback=on_settings_saved
@@ -56,6 +61,9 @@ def start_tk():
 
     # Wire state callback now that overlay exists
     app_logic.on_state_change = on_state_change
+
+    # Wire clipboard popup hotkey callback
+    app_logic.hotkey_manager.on_show_clipboard = on_show_clipboard
 
     tk_root.mainloop()
 
@@ -75,6 +83,11 @@ def on_state_change(state):
         overlay.hide()
 
 
+def on_show_clipboard():
+    if clipboard_popup:
+        clipboard_popup.show(app_logic.clipboard_history)
+
+
 def on_settings_saved():
     app_logic.reload_after_settings()
     if overlay:
@@ -89,6 +102,8 @@ def on_open_settings(icon, menu_item):
 
 
 def on_exit(icon, menu_item):
+    if clipboard_popup:
+        clipboard_popup.cleanup()
     if overlay:
         overlay.cleanup()
     app_logic.cleanup()

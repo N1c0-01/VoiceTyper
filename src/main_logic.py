@@ -3,6 +3,8 @@ import threading
 import logging
 import time
 import os
+import ctypes
+from collections import deque
 
 from config import ConfigManager
 from audio_recorder import AudioRecorder
@@ -31,6 +33,7 @@ class VoiceTyperApp:
         # State
         self.processing_thread = None
         self.on_state_change = None  # UI callback: ("recording"|"processing"|"done"|"idle")
+        self.clipboard_history = deque(maxlen=5)
 
         # Hotkey Manager needs to be last
         self.hotkey_manager = HotkeyManager(
@@ -40,6 +43,52 @@ class VoiceTyperApp:
         )
 
         logging.info("VoiceTyper initialized and ready.")
+
+    @staticmethod
+    def _copy_to_clipboard(text):
+        """Copy text to Windows clipboard using Win32 API."""
+        try:
+            CF_UNICODETEXT = 13
+            GMEM_MOVEABLE = 0x0002
+
+            kernel32 = ctypes.windll.kernel32
+            user32 = ctypes.windll.user32
+
+            # Set proper 64-bit return types for pointer functions
+            kernel32.GlobalAlloc.restype = ctypes.c_void_p
+            kernel32.GlobalLock.restype = ctypes.c_void_p
+
+            # Encode to UTF-16 LE with null terminator
+            data = text.encode("utf-16-le") + b"\x00\x00"
+
+            h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, ctypes.c_size_t(len(data)))
+            if not h_mem:
+                logging.error("Clipboard: GlobalAlloc failed")
+                return
+
+            ptr = kernel32.GlobalLock(ctypes.c_void_p(h_mem))
+            if not ptr:
+                logging.error("Clipboard: GlobalLock failed")
+                return
+
+            ctypes.memmove(ptr, data, len(data))
+            kernel32.GlobalUnlock(ctypes.c_void_p(h_mem))
+
+            if not user32.OpenClipboard(0):
+                logging.error("Clipboard: OpenClipboard failed")
+                kernel32.GlobalFree(ctypes.c_void_p(h_mem))
+                return
+
+            user32.EmptyClipboard()
+            user32.SetClipboardData(CF_UNICODETEXT, ctypes.c_void_p(h_mem))
+            user32.CloseClipboard()
+            logging.info("Text copied to clipboard.")
+        except Exception as e:
+            logging.error(f"Clipboard copy failed: {e}")
+            try:
+                ctypes.windll.user32.CloseClipboard()
+            except Exception:
+                pass
 
     def _notify_state(self, state):
         if self.on_state_change:
@@ -90,6 +139,8 @@ class VoiceTyperApp:
         if text:
             logging.info(f"Transcribed: '{text}'")
             self.injector.inject(text)
+            self._copy_to_clipboard(text)
+            self.clipboard_history.appendleft(text)
             t_injected = time.perf_counter()
             logging.info(f"[TIMING] Full pipeline: {(t_injected-t_start)*1000:.0f}ms (transcribe: {(t_transcribed-t_start)*1000:.0f}ms, inject: {(t_injected-t_transcribed)*1000:.0f}ms)")
             self._notify_state("done")

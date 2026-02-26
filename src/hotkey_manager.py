@@ -2,6 +2,7 @@
 import keyboard
 import threading
 import time
+from pynput import mouse as pynput_mouse
 from config import ConfigManager
 
 class HotkeyManager:
@@ -9,11 +10,14 @@ class HotkeyManager:
         self.config = config
         self.on_start_recording = on_start_recording
         self.on_stop_recording = on_stop_recording
+        self.on_show_clipboard = None  # callback set by main.py
         self.is_recording = False
         self.lock = threading.Lock()
         self._hook = None
+        self._mouse_listener = None
 
         self.setup_hotkey()
+        self._start_mouse_listener()
 
     def setup_hotkey(self):
         hotkey = self.config.get("hotkey", "ctrl_r")
@@ -68,5 +72,19 @@ class HotkeyManager:
                 self.is_recording = True
                 self.on_start_recording()
 
+    def _start_mouse_listener(self):
+        """Listen for Left Alt + Right Click → toggle clipboard popup."""
+        def on_click(x, y, button, pressed):
+            if pressed and button == pynput_mouse.Button.right:
+                if keyboard.is_pressed("left alt"):
+                    if self.on_show_clipboard:
+                        self.on_show_clipboard()
+
+        self._mouse_listener = pynput_mouse.Listener(on_click=on_click)
+        self._mouse_listener.daemon = True
+        self._mouse_listener.start()
+
     def cleanup(self):
         keyboard.unhook_all()
+        if self._mouse_listener:
+            self._mouse_listener.stop()
