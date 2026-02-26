@@ -30,7 +30,6 @@ def _add_notification_dot(icon_img):
     size = img.size[0]
     dot_r = max(size // 6, 4)
     draw = ImageDraw.Draw(img)
-    # Top-right corner with small margin
     cx = size - dot_r - 2
     cy = dot_r + 2
     draw.ellipse(
@@ -51,7 +50,7 @@ tray_icon = None
 clipboard_popup = None
 
 # Update state
-_update_batch_path = None  # set when update is downloaded and ready to apply
+_update_available = False
 _update_info = None
 
 icons = {
@@ -125,13 +124,6 @@ def on_open_settings(icon, menu_item):
         tk_root.after(0, settings.open)
 
 
-def on_install_update(icon, menu_item):
-    """Tray menu action: apply downloaded update and restart."""
-    if _update_batch_path:
-        logging.info("User triggered update install from tray menu.")
-        updater.apply_and_restart(_update_batch_path)
-
-
 def on_exit(icon, menu_item):
     if clipboard_popup:
         clipboard_popup.cleanup()
@@ -141,6 +133,64 @@ def on_exit(icon, menu_item):
     icon.stop()
     if tk_root:
         tk_root.after(0, tk_root.quit)
+
+
+# ── Update ───────────────────────────────────────────────────
+
+def on_update_clicked(icon, menu_item):
+    """Tray menu: user clicks Update → download + apply + restart."""
+    if not _update_info:
+        return
+
+    logging.info("User triggered update from tray menu. Downloading...")
+
+    def _on_done(success, message):
+        if success:
+            logging.info("Download complete. Applying update and restarting...")
+            updater.apply_and_restart(message)
+        else:
+            logging.error(f"Update download failed: {message}")
+
+    updater.download_and_apply_update(
+        _update_info,
+        done_callback=_on_done,
+    )
+
+
+def _startup_update_check():
+    """Check for updates on startup. If found, show red dot + tray menu item."""
+    global _update_available, _update_info
+
+    time.sleep(5)
+    info = updater.check_for_update(APP_VERSION)
+    if not info:
+        return
+
+    _update_info = info
+    _update_available = True
+    version = info["version"]
+    logging.info(f"Update available: v{version}")
+
+    # Notify settings UI
+    if tk_root and settings:
+        tk_root.after(0, lambda: settings.show_update_available(info))
+
+    # Rebuild tray menu with Update option
+    _rebuild_tray_menu()
+
+
+def _rebuild_tray_menu():
+    """Add 'Update vX.X.X' to the tray menu."""
+    if not tray_icon or not _update_info:
+        return
+    version = _update_info["version"]
+    tray_icon.menu = pystray.Menu(
+        item(f'Update v{version}', on_update_clicked),
+        pystray.Menu.SEPARATOR,
+        item('Settings', on_open_settings),
+        item(f'VoiceTyper v{APP_VERSION}', lambda *a: None, enabled=False),
+        item('Exit', on_exit),
+    )
 
 
 # ── Icon updater ──────────────────────────────────────────────
@@ -153,65 +203,13 @@ def update_icon():
             elif (app_logic.processing_thread
                   and app_logic.processing_thread.is_alive()):
                 tray_icon.icon = icons["loading"]
-            elif _update_batch_path:
+            elif _update_available:
                 tray_icon.icon = icons["update"]
             else:
                 tray_icon.icon = icons["idle"]
         except Exception:
             pass
         time.sleep(0.1)
-
-
-# ── Auto-update ──────────────────────────────────────────────
-
-def _startup_update_check():
-    global _update_batch_path, _update_info
-
-    time.sleep(5)  # Let app fully initialize first
-    info = updater.check_for_update(APP_VERSION)
-    if not info:
-        return
-
-    _update_info = info
-    version = info["version"]
-    logging.info(f"Update available: v{version} — downloading automatically...")
-
-    # Notify settings UI if it's open
-    if tk_root and settings:
-        tk_root.after(0, lambda: settings.show_update_available(info))
-
-    # Auto-download in background
-    done_event = threading.Event()
-
-    def _on_done(success, message):
-        global _update_batch_path
-        if success:
-            _update_batch_path = message
-            logging.info(f"Update v{version} downloaded and ready to install.")
-            # Rebuild tray menu to show install option
-            _rebuild_tray_menu()
-        else:
-            logging.error(f"Auto-download failed: {message}")
-        done_event.set()
-
-    updater.download_and_apply_update(
-        info,
-        progress_callback=lambda pct: logging.info(f"Update download: {pct}%") if pct % 25 == 0 else None,
-        done_callback=_on_done,
-    )
-
-
-def _rebuild_tray_menu():
-    """Rebuild tray menu to include the Install Update option."""
-    if not tray_icon:
-        return
-    version = _update_info["version"] if _update_info else ""
-    tray_icon.menu = pystray.Menu(
-        item(f'Install Update v{version}', on_install_update),
-        item('Settings', on_open_settings),
-        item(f'VoiceTyper v{APP_VERSION}', lambda *a: None, enabled=False),
-        item('Exit', on_exit),
-    )
 
 
 # ── Main ──────────────────────────────────────────────────────
@@ -237,7 +235,7 @@ def main():
     icon_thread = threading.Thread(target=update_icon, daemon=True)
     icon_thread.start()
 
-    # Background auto-update check + download on startup
+    # Background update check on startup (detect only, no auto-download)
     threading.Thread(target=_startup_update_check, daemon=True).start()
 
     # Run pystray on main thread (required on Windows for reliable menu)
