@@ -36,6 +36,7 @@ a = Analysis(
         'keyboard_injector',
         'main_logic',
         'updater',
+        'clipboard_popup',
     ],
     hookspath=[],
     hooksconfig={},

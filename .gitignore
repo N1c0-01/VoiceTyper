@@ -9,3 +9,4 @@ logs/
 external/models/
 *.exe
 !external/whisper.exe
+config.json
