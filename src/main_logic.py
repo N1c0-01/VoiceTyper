@@ -165,6 +165,8 @@ class VoiceTyperApp:
         # Re-init hotkey (key or mode may have changed)
         self.hotkey_manager.config = self.config
         self.hotkey_manager.setup_hotkey()
+        # Re-init clipboard hotkey (modifier key may have changed)
+        self.hotkey_manager.restart_mouse_listener()
         logging.info("Reload complete.")
 
     def cleanup(self):

@@ -15,6 +15,9 @@ DEFAULT_CONFIG = {
     "local_model": "small",  # "tiny", "base", or "small"
     "language": "de",
 
+    # Clipboard
+    "clipboard_hotkey": "left alt",
+
     # UI settings
     "overlay_position": "Top Center",
     "saved_api_keys": []

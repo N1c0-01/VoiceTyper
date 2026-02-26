@@ -73,16 +73,24 @@ class HotkeyManager:
                 self.on_start_recording()
 
     def _start_mouse_listener(self):
-        """Listen for Left Alt + Right Click → toggle clipboard popup."""
+        """Listen for clipboard_hotkey + Right Click → toggle clipboard popup."""
+        clipboard_key = self.config.get("clipboard_hotkey", "left alt")
+
         def on_click(x, y, button, pressed):
             if pressed and button == pynput_mouse.Button.right:
-                if keyboard.is_pressed("left alt"):
+                if keyboard.is_pressed(clipboard_key):
                     if self.on_show_clipboard:
                         self.on_show_clipboard()
 
         self._mouse_listener = pynput_mouse.Listener(on_click=on_click)
         self._mouse_listener.daemon = True
         self._mouse_listener.start()
+
+    def restart_mouse_listener(self):
+        """Restart mouse listener with current config (e.g. after hotkey change)."""
+        if self._mouse_listener:
+            self._mouse_listener.stop()
+        self._start_mouse_listener()
 
     def cleanup(self):
         keyboard.unhook_all()

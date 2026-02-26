@@ -182,7 +182,11 @@ class SettingsWindow:
     def _build_general_tab(self, parent):
         parent.configure(fg_color=BG_ELEVATED)
 
-        container = ctk.CTkFrame(parent, fg_color=BG_ELEVATED)
+        container = ctk.CTkScrollableFrame(
+            parent, fg_color=BG_ELEVATED,
+            scrollbar_button_color=BORDER_DARK,
+            scrollbar_button_hover_color=NARDO_GREY,
+        )
         container.pack(fill="both", expand=True, padx=4, pady=4)
 
         # ── Hotkey Card ────────────────────────────────────────
@@ -257,6 +261,31 @@ class SettingsWindow:
             toggle_frame, text="Press once to start, again to stop",
             font=("Segoe UI Variable", 10), text_color=TEXT_SECONDARY
         ).pack(anchor="w", padx=(24, 0))
+
+        # Divider
+        ctk.CTkFrame(card, fg_color=BORDER_DARK, height=1).pack(fill="x", pady=(14, 14))
+
+        # Clipboard hotkey
+        ctk.CTkLabel(
+            card, text="Clipboard Popup", font=FONT_LABEL,
+            text_color=NARDO_GREY
+        ).pack(anchor="w", pady=(0, 8))
+
+        self.clipboard_hotkey_display = ctk.CTkButton(
+            card, text="left alt", font=FONT_HOTKEY,
+            height=56, corner_radius=10,
+            fg_color=BORDER_DARK, hover_color=BORDER_GLOW,
+            text_color=LIGHT_GREY, border_width=1,
+            border_color=BORDER_DARK,
+            command=self._start_clipboard_hotkey_capture
+        )
+        self.clipboard_hotkey_display.pack(fill="x", pady=(0, 12))
+
+        self.clipboard_hotkey_hint = ctk.CTkLabel(
+            card, text="Click above to change \u2022 Hold this key + Right Click to open",
+            font=FONT_SMALL, text_color=TEXT_SECONDARY
+        )
+        self.clipboard_hotkey_hint.pack(anchor="w")
 
     def _build_preferences_card(self, parent):
         card = self._make_card(parent, "Preferences", NARDO_GREY)
@@ -806,6 +835,9 @@ class SettingsWindow:
 
     def _load_values(self):
         self.hotkey_display.configure(text=self.config.get("hotkey", "right ctrl"))
+        self.clipboard_hotkey_display.configure(
+            text=self.config.get("clipboard_hotkey", "left alt")
+        )
         self.mode_var.set(self.config.get("recording_mode", "hold"))
         self.backend_var.set(self.config.get("transcription_backend", "local"))
         self.api_key_var.set(self.config.get("openai_api_key", ""))
@@ -843,6 +875,7 @@ class SettingsWindow:
             self.config.set("saved_api_keys", saved)
 
         self.config.set("hotkey", self.hotkey_display.cget("text"))
+        self.config.set("clipboard_hotkey", self.clipboard_hotkey_display.cget("text"))
         self.config.set("recording_mode", self.mode_var.get())
         self.config.set("transcription_backend", self.backend_var.get())
         # Only save model if one is selected and installed
@@ -1020,5 +1053,40 @@ class SettingsWindow:
         )
         self.hotkey_hint.configure(
             text="Click above, then press any key to set hotkey",
+            text_color=TEXT_SECONDARY
+        )
+
+    def _start_clipboard_hotkey_capture(self):
+        if self._recording_hotkey:
+            return
+
+        self._recording_hotkey = True
+        self.clipboard_hotkey_display.configure(
+            text="press any key...",
+            fg_color=RED_ACCENT, border_color=RED_ACCENT,
+            text_color="#FFFFFF"
+        )
+        self.clipboard_hotkey_hint.configure(
+            text="Waiting for keypress...", text_color=RED_ACCENT
+        )
+
+        def capture():
+            event = keyboard.read_event(suppress=True)
+            if event.event_type == keyboard.KEY_DOWN:
+                key_name = event.name
+                if self.window and self.window.winfo_exists():
+                    self.window.after(0, self._finish_clipboard_hotkey_capture, key_name)
+
+        threading.Thread(target=capture, daemon=True).start()
+
+    def _finish_clipboard_hotkey_capture(self, key_name):
+        self._recording_hotkey = False
+        self.clipboard_hotkey_display.configure(
+            text=key_name,
+            fg_color=BORDER_DARK, border_color=BORDER_DARK,
+            text_color=LIGHT_GREY
+        )
+        self.clipboard_hotkey_hint.configure(
+            text="Click above to change \u2022 Hold this key + Right Click to open",
             text_color=TEXT_SECONDARY
         )
