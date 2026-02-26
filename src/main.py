@@ -16,7 +16,7 @@ from overlay import RecordingOverlay, STATE_RECORDING, STATE_PROCESSING, STATE_D
 from clipboard_popup import ClipboardPopup
 import updater
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 
 
 def load_icon(name):
